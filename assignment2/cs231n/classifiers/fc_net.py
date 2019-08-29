@@ -282,27 +282,18 @@ class FullyConnectedNet(object):
         input_layer = X
         caches = []
 
-        for i in range(self.num_layers - 2):
-          
-          print('i = %d'%i)
-          print(self.params['W1'].shape)
-          print(self.params['W2'].shape)
-          print(self.params['W3'].shape)
+        for i in range(self.num_layers - 1):
 
           W = self.params['W%d'%(i + 1)]
           b = self.params['b%d'%(i + 1)]
 
-          print('W: ', W.shape)
-          print('input: ', input_layer.shape)
-
           output_layer, cache_layer = affine_relu_forward(input_layer, W, b)
-
-          print('output: ', output_layer.shape)
 
           caches.append(cache_layer)
           input_layer = output_layer
 
-          print('input pos: ', input_layer.shape)
+        W = self.params['W%d'%(self.num_layers)]
+        b = self.params['b%d'%(self.num_layers)]
 
         output_layer, cache_layer = affine_forward(input_layer, W, b)
 
@@ -339,7 +330,7 @@ class FullyConnectedNet(object):
         b = 'b%d'%(self.num_layers)
 
         data_loss, dscores = softmax_loss(scores, y)        
-        doutput_layer, dW, db = affine_backward(dscores, caches[-1])
+        dout, dW, db = affine_backward(dscores, caches[-1])
 
         grads[W] = dW
         grads[b] = db
@@ -352,13 +343,15 @@ class FullyConnectedNet(object):
 
           sum_W += np.sum(W ** 2)
 
-          dinput_layer, dW, db = affine_relu_backward(doutput_layer, caches[i + 1])
+          din, dW, db = affine_relu_backward(dout, caches[i])
 
           # add regularization gradient contribution
           dW += self.reg * W
 
-          grads[W] = dW
-          grads[b] = db      
+          grads['W%d'%(i + 1)] = dW
+          grads['b%d'%(i + 1)] = db 
+
+          dout = din     
 
         reg_loss = 0.5 * self.reg * sum_W
         loss = data_loss + reg_loss

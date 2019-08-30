@@ -67,13 +67,19 @@ def sgd_momentum(w, dw, config=None):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    mu = config['momentum']
+    learning_rate = config['learning_rate']
+
+    v = mu * v - learning_rate * dw
+    next_w = w + v
+
+    # updating the variable v in config dict
+    config['velocity'] = v
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
-    config['velocity'] = v
 
     return next_w, config
 
@@ -105,7 +111,16 @@ def rmsprop(w, dw, config=None):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    cache = config['cache']
+    decay_rate = config['decay_rate']
+    learning_rate = config['learning_rate']
+    eps = config['epsilon']
+
+    cache = decay_rate * cache + (1 - decay_rate) * (dw ** 2)
+    next_w = w - learning_rate * dw / (np.sqrt(cache) + eps)
+
+    # updating the variable cache in config dict
+    config['cache'] = cache
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -149,7 +164,27 @@ def adam(w, dw, config=None):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    learning_rate = config['learning_rate']    
+    beta1 = config['beta1']
+    beta2 = config['beta2']
+    eps = config['epsilon']
+    m = config['m']
+    v = config['v']
+    t = config['t']
+
+    # modifing t before calculations
+    t += 1
+
+    m = beta1 * m + (1 - beta1) * dw
+    mt = m / (1 - (beta1 ** t))
+    v = beta2 * v + (1 - beta2) * (dw ** 2)
+    vt = v / (1 - beta2 ** t)
+    next_w = w - learning_rate * mt / (np.sqrt(vt) + eps)
+
+    # updating the variables in config dict
+    config['m'] = m
+    config['v'] = v
+    config['t'] = t
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################

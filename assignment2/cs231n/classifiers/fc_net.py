@@ -54,6 +54,8 @@ class TwoLayerNet(object):
         self.params['W2'] = np.random.normal(loc=0.0, scale=weight_scale, size=(hidden_dim, num_classes))
         self.params['b2'] = np.zeros(num_classes)
 
+
+
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -329,19 +331,22 @@ class FullyConnectedNet(object):
         W = 'W%d'%(self.num_layers)
         b = 'b%d'%(self.num_layers)
 
+        sum_W = 0
+
+        for i in range(self.num_layers):
+          sum_W += np.sum(self.params['W%d'%(i + 1)] ** 2)
+
         data_loss, dscores = softmax_loss(scores, y)        
         dout, dW, db = affine_backward(dscores, caches[-1])
+
+        dW += self.reg * self.params[W]
 
         grads[W] = dW
         grads[b] = db
 
-        sum_W = np.sum(self.params[W] ** 2)
-
         for i in (reversed(range(self.num_layers - 1))):
           W = self.params['W%d'%(i + 1)]
           b = self.params['b%d'%(i + 1)]
-
-          sum_W += np.sum(W ** 2)
 
           din, dW, db = affine_relu_backward(dout, caches[i])
 

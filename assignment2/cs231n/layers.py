@@ -200,7 +200,17 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        sample_mean = np.mean(x, axis=0)
+        sample_var = np.var(x, axis=0)
+
+        x_hat = (x - sample_mean) / (np.sqrt(sample_var + eps))
+
+        out = gamma * x_hat + beta
+
+        cache = (gamma, x, sample_mean, sample_var, eps, x_hat)
+
+        running_mean = (momentum * running_mean) + ((1 - momentum) * sample_mean)
+        running_var = (momentum * running_var) + ((1 - momentum) * sample_var)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -215,7 +225,9 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        x_hat = (x - running_mean) / (np.sqrt(running_var  + eps))
+
+        out = gamma * x_hat + beta
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -257,7 +269,18 @@ def batchnorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    gamma, x, mean_b, var_b, eps, x_hat = cache
+    N = x.shape[0]
+
+    dgamma = np.sum(dout * x_hat, axis=0)
+    dbeta = np.sum(dout, axis=0)
+
+    dx_hat = dout * gamma
+
+    dvar_b = np.sum(dx_hat * (x - mean_b), axis=0) * (-0.50 / (var_b + eps) ** 1.5)
+    dmean_b = np.sum(dx_hat * (- 1.0 / np.sqrt(var_b + eps)), axis=0) + (dvar_b * np.sum(-2.0 * (x - mean_b), axis=0) / N)
+
+    dx = (dx_hat / np.sqrt(var_b + eps)) + (dvar_b * 2 * (x - mean_b) / N) + (dmean_b / N)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################

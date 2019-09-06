@@ -342,6 +342,7 @@ class FullyConnectedNet(object):
         W = 'W%d'%(self.num_layers)
         b = 'b%d'%(self.num_layers)
 
+        # calculating loss
         sum_W = 0
         for i in range(self.num_layers):
           sum_W += np.sum(self.params['W%d'%(i + 1)] ** 2)
@@ -351,7 +352,7 @@ class FullyConnectedNet(object):
         loss = data_loss + reg_loss
 
         # last layer backward
-        dout, dW, db = affine_backward(dscores, caches[self.num_layers - 1])
+        dout, dW, db = affine_backward(dscores, caches[-1])
 
         # add regularization gradient contribution
         dW += self.reg * self.params[W]
@@ -364,18 +365,17 @@ class FullyConnectedNet(object):
           b = self.params['b%d'%(i + 1)]
 
           # backward (without last layer): dropout -> relu -> batch/layer norm -> affine / implemented below
-          din, dW, db, dgamma, dbeta = affine_norm_relu_backward(dout, caches[i], self.normalization, self.use_dropout)
+          dout, dW, db, dgamma, dbeta = affine_norm_relu_backward(dout, caches[i], self.normalization, self.use_dropout)
 
-          if self.normalization != None:
+          if self.normalization:
             grads['gamma%d'%(i + 1)] = dgamma
             grads['beta%d'%(i + 1)] = dbeta
 
           # add regularization gradient contribution
           dW += self.reg * W
-          grads['W%d'%(i + 1)] = dW
-          grads['b%d'%(i + 1)] = db 
 
-          dout = din     
+          grads['W%d'%(i + 1)] = dW
+          grads['b%d'%(i + 1)] = db  
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################

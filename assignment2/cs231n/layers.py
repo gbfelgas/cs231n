@@ -281,6 +281,7 @@ def batchnorm_backward(dout, cache):
     dmean = np.sum(dx_hat * (- 1.0 / np.sqrt(var + eps)), axis=0) + (dvar * np.sum(-2.0 * (x - mean), axis=0) / N)
 
     dx = (dx_hat / np.sqrt(var + eps)) + (dvar * 2 * (x - mean) / N) + (dmean / N)
+    print('dx: ', dx)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -321,18 +322,22 @@ def batchnorm_backward_alt(dout, cache):
     dgamma = np.sum(dout * x_hat, axis=0)
     dbeta = np.sum(dout, axis=0)
 
-    dfdx_hat = dout * gamma
-    dx_hatdx = 1.0 / np.sqrt(var + eps)
+    # redundancies for better comprehension
 
-    dvardmean = -2.0 * (x - mean) / N
+    dfdx_hat = gamma    # f = gama * x_hat + beta
+    back1 = dout * dfdx_hat
+    
+    dx_hatdx = 1.0 / np.sqrt(var + eps)   # x_hat = (x - mean) * ((var + eps) ** -0.5)
 
-    dx_hatdmean = -1.0 / np.sqrt(var + eps)
+    dx_hatdmean = -1.0 / np.sqrt(var + eps)   # x_hat = (x - mean) * ((var + eps) ** -0.5)
     dmeandx = 1.0 / N
     
-    dx_hatdvar = -0.5 * (x - mean) * ((var - eps) ** -1.5)
+    dx_hatdvar = np.sum(-0.5 * (x - mean) * ((var - eps) ** -1.5), axis=0)
+    dvardmean = np.sum(-2.0 * (x - mean), axis=0) / N
     dvardx = 2.0 * (x - mean) / N
 
-    dx = ((dfdx_hat * dx_hatdx) + (dfdx_hat * dx_hatdmean * dmeandx) + (dfdx_hat * dx_hatdvar * dvardx) + (dfdx_hat * dx_hatdvar * dvardmean * dmeandx)) / 4
+    dx = (dfdx_hat * dx_hatdx) + (dfdx_hat * dx_hatdmean * dmeandx) + (np.sum(dfdx_hat * dx_hatdvar, axis=0) * dvardx) + (np.sum(dfdx_hat * dx_hatdvar, axis=0) * dvardmean * dmeandx)
+    print('dx_alt: ', dx)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################

@@ -425,7 +425,7 @@ def affine_norm_relu_backward(dout, cache, normalization, dropout):
 
     # batch normalization backward
     if normalization == 'batchnorm':
-      dout, dgamma, dbeta = batchnorm_backward(dout, bn_cache)
+      dout, dgamma, dbeta = batchnorm_backward_alt(dout, bn_cache)
 
     # layer normalization backward
     elif normalization == 'layernorm':

@@ -200,17 +200,17 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        sample_mean = np.mean(x, axis=0)
-        sample_var = np.var(x, axis=0)
+        mean = np.mean(x, axis=0)
+        var = np.var(x, axis=0)
 
-        xhat = (x - sample_mean) / (np.sqrt(sample_var + eps))
+        xhat = (x - mean) / (np.sqrt(var + eps))
 
         out = gamma * xhat + beta
 
-        cache = (gamma, x, sample_mean, sample_var, eps, xhat)
+        cache = (gamma, beta, x, mean, var, eps, xhat)
 
-        running_mean = (momentum * running_mean) + ((1 - momentum) * sample_mean)
-        running_var = (momentum * running_var) + ((1 - momentum) * sample_var)
+        running_mean = (momentum * running_mean) + ((1 - momentum) * mean)
+        running_var = (momentum * running_var) + ((1 - momentum) * var)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -225,7 +225,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        xhat = (x - running_mean) / (np.sqrt(running_var  + eps))
+        xhat = (x - running_mean) / (np.sqrt(running_var + eps))
 
         out = gamma * xhat + beta
 
@@ -276,10 +276,10 @@ def batchnorm_backward(dout, cache):
     dbeta = np.sum(dout, axis=0)
 
     dxhat = dout * gamma
-    dvar = np.sum(dx_hat * (x - mean) * -0.50 * ((var + eps) ** -1.5), axis=0)
-    dmean = np.sum(dx_hat * (- 1.0 / np.sqrt(var + eps)), axis=0) + (dvar * np.sum(-2.0 * (x - mean), axis=0) / N)
+    dvar = np.sum(dxhat * (x - mean) * -0.50 * ((var + eps) ** -1.5), axis=0)
+    dmean = np.sum(dxhat * (- 1.0 / np.sqrt(var + eps)), axis=0) + (dvar * np.sum(-2.0 * (x - mean), axis=0) / N)
 
-    dx = (dx_hat / np.sqrt(var + eps)) + (dvar * 2 * (x - mean) / N) + (dmean / N)
+    dx = (dxhat / np.sqrt(var + eps)) + (dvar * 2 * (x - mean) / N) + (dmean / N)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -317,29 +317,10 @@ def batchnorm_backward_alt(dout, cache):
     gamma, x, mean, var, eps, xhat = cache
     N = x.shape[0]
 
-    # considerations considered to discover the final formula
-
-    # dL / dx_i_j = sum{k,l}((dL / dy_k_l) * (dy_k_l / dxhat_k_l) * (dxhat_k_l / dhij))
-
-    # y_k_l = gamma_l * xhat_k_l + beta_l
-    # xhat_k_l = (h_k_l - mean_l) * ((var_l + eps) ** -0.5)
-    # mean = (1.0 / N) * sum{p}(x_p_l)
-    # var = (1.0 / N) * sum{p}((x_p_l - mean_l) ** 2)
-
-
-    # dL / dy_i_j = dout_i_j
-    # dy_k_l / dxhat_k_l = gama_l
-
-    # dxhat_k_l / dx_i_j = (\delta_i_k * \delta_j_l) - ((1.0 / N) * \delta_j_l * ((var_l + eps) ** -0.5)) -
-    #                     - (0.5 * (h_k_l - u_l) * (dvar_l / dx_i_j) * ((var + eps) ** -1.5))
-
-    # dvar_l / dx_i_j = (1.0 / N) * sum{p}(2 * (\delta_i_p * \delta_j_l - ((1.0 / N) * \delta_j_l))) * (x_p_l - mean_l)
-    #                 = ((2 / N) * (x_i_l - mean_l) * \delta_j_l) - ((2 / (N ** 2)) * sum{p}(\delta_j_l * (x_p_l - mean_l)))
-
     dgamma = np.sum(dout * xhat, axis=0)
     dbeta = np.sum(dout, axis=0)
 
-    dx = ((1.0 / N) * gamma * ((var + eps) ** -0.5)) * (N * dout - np.sum(dout, axis=0) - (x - mean) * (((var + eps) ** -1.0) * np.sum(dout * (x - mean), axis=0))
+    dx = (1.0 / N) * gamma * ((var + eps) ** -0.5) * (N * dout - np.sum(dout, axis=0) - (x - mean) * ((var + eps) ** -1.0) * np.sum(dout * (x - mean), axis=0))
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -558,7 +539,25 @@ def conv_forward_naive(x, w, b, conv_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    pad = conv_param['pad']
+    stride = conv_param['stride']
+
+    N, C, H, W = x.shape
+    F, _, HH, WW = w.shape
+
+    H_ = 1 + (H + 2 * pad - HH) // stride
+    W_ = 1 + (W + 2 * pad - WW) // stride
+
+    out = np.zeros((N, F, H_, W_))
+
+    for n in range(N):
+      xpad = np.pad(x[n, :, :, :], ((0, 0), (pad, pad), (pad, pad)), mode='constant')
+      for i in range(H_):
+        for j in range(W_):
+          block = xpad[:, i*stride:i*stride + HH ,j*stride:j*stride + WW].reshape(-1)
+          for f in range(F):
+            filt = w[f,:,:,:].reshape(-1)
+            out[n, f, i, j] = np.dot(block, filt) + b[f]
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -587,7 +586,32 @@ def conv_backward_naive(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, w, b, conv_param = cache
+    stride = conv_param['stride']
+    pad = conv_param['pad']
+    xpad = (np.pad(x, ((0, 0), (0, 0), (pad, pad), (pad, pad)), 'constant'))
+
+    N, C, H, W = x.shape
+    F, _, HH, WW = w.shape
+    _, _, H_, W_ = dout.shape
+
+    # Initialise gradient output tensors.
+    dx_temp = np.zeros_like(xpad)
+    dw = np.zeros_like(w)
+    db = np.zeros_like(b)
+
+    for f in range(F):
+        db[f] += np.sum(dout[:, f, :, :])
+
+    for n in range(N):
+        for f in range(F):
+            for i in range(H_):
+                for j in range(W_):
+                    dw[f, :, :, :] += dout[n, f, i, j] * xpad[n, :, i*stride:i*stride + HH, j*stride:j*stride + WW]
+                    dx_temp[n, :, i*stride:i*stride + HH, j*stride:j*stride + WW] += dout[n, f, i, j] * w[f, :, :, :]
+
+    # Remove the padding from dx so it matches the shape of x.
+    dx = dx_temp[:, :, pad:H+pad, pad:W+pad]
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -621,7 +645,23 @@ def max_pool_forward_naive(x, pool_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    pool_height = pool_param['pool_height']
+    pool_width = pool_param['pool_width']
+    stride = pool_param['stride']
+
+    N, C, H, W = x.shape
+
+    H_ = 1 + (H - pool_height) // stride
+    W_ = 1 + (W - pool_width) // stride
+
+    out = np.zeros((N, C, H_, W_))
+
+    for n in range(N):
+      for i in range(H_):
+        for j in range(W_):
+          for c in range(C):
+            channel = x[n, c, i*stride:i*stride + pool_height, j*stride:j*stride + pool_width]
+            out[n, c, i, j] = np.max(channel)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -648,7 +688,25 @@ def max_pool_backward_naive(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, pool_param = cache
+
+    pool_height = pool_param['pool_height']
+    pool_width = pool_param['pool_width']
+    stride = pool_param['stride']
+
+    N, C, H, W = x.shape
+    _, _, H_, W_ = dout.shape
+
+    dx = np.zeros(x.shape)
+
+    for n in range(N):
+      for i in range(H_):
+        for j in range(W_):
+          for c in range(C):
+            mask = np.argmax(x[n, c, i*stride:i*stride + pool_height, j*stride:j*stride + pool_width])
+            ind1, ind2 = np.unravel_index(mask, (pool_height, pool_width))
+            dx[n, c, i*stride + ind1, j*stride + ind2] = dout[n, c, i, j]
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################

@@ -209,8 +209,11 @@ def batchnorm_forward(x, gamma, beta, bn_param):
 
         cache = (gamma, beta, x, mean, var, eps, xhat)
 
-        running_mean = (momentum * running_mean) + ((1 - momentum) * mean)
-        running_var = (momentum * running_var) + ((1 - momentum) * var)
+        running_mean = momentum * running_mean + (1 - momentum) * mean
+        running_var = momentum * running_var + (1 - momentum) * var
+
+        bn_param['running_mean'] = running_mean
+        bn_param['running_var'] = running_var
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -269,17 +272,17 @@ def batchnorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    gamma, x, mean, var, eps, xhat = cache
+    gamma, beta, x, mean, var, eps, xhat = cache
     N = x.shape[0]
 
     dgamma = np.sum(dout * xhat, axis=0)
     dbeta = np.sum(dout, axis=0)
 
-    dxhat = dout * gamma
-    dvar = np.sum(dxhat * (x - mean) * -0.50 * ((var + eps) ** -1.5), axis=0)
-    dmean = np.sum(dxhat * (- 1.0 / np.sqrt(var + eps)), axis=0) + (dvar * np.sum(-2.0 * (x - mean), axis=0) / N)
+    dldxhat = dout * gamma
+    dldvar = np.sum(dldxhat * (x - mean) * -0.50 * ((var + eps) ** -1.5), axis=0)
+    dldmean = np.sum(dldxhat * (- 1.0 / np.sqrt(var + eps)), axis=0) + (dldvar * np.sum(-2.0 * (x - mean), axis=0) / N)
 
-    dx = (dxhat / np.sqrt(var + eps)) + (dvar * 2 * (x - mean) / N) + (dmean / N)
+    dx = (dldxhat / np.sqrt(var + eps)) + (dldvar * 2 * (x - mean) / N) + (dldmean / N)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -314,13 +317,19 @@ def batchnorm_backward_alt(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    gamma, x, mean, var, eps, xhat = cache
-    N = x.shape[0]
+    gamma, beta, x, mean, var, eps, xhat = cache
+    N = dout.shape[0]
 
     dgamma = np.sum(dout * xhat, axis=0)
     dbeta = np.sum(dout, axis=0)
 
-    dx = (1.0 / N) * gamma * ((var + eps) ** -0.5) * (N * dout - np.sum(dout, axis=0) - (x - mean) * ((var + eps) ** -1.0) * np.sum(dout * (x - mean), axis=0))
+    dout = dout * gamma
+    dout_sum = np.sum(dout, axis=0)
+
+    dx = dout - dout_sum / N - np.sum(dout * xhat, axis=0) * xhat / N
+    dx /= np.sqrt(var + eps)
+
+    # dx = (1.0 / N) * gamma * ((var + eps) ** -0.5) * (N * dout - np.sum(dout, axis=0) - (x - mean) * ((var + eps) ** -1.0) * np.sum(dout * (x - mean), axis=0))
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -748,7 +757,11 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    # x => (N, C, H, W)
+    x_t = x.transpose((0, 2, 3, 1)) # x_t => (N, H, W, C)
+    x_temp = x_t.reshape(-1, x.shape[1]) # x_temp => (N * H * W, C)
+    out, cache = batchnorm_forward(x_temp, gamma, beta, bn_param) # out => (N * H * W, C)
+    out = out.reshape(*x_t.shape).transpose((0, 3, 1, 2)) # out => (N, C, H, W)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -782,7 +795,11 @@ def spatial_batchnorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    # dout => (N, C, H, W)
+    dout_t = dout.transpose((0, 2, 3, 1)) # dout_t => (N, H, W, C)
+    dout_temp = dout_t.reshape(-1, dout.shape[1]) # dout_temp => (N * H * W, C)
+    dx, dgamma, dbeta = batchnorm_backward_alt(dout_temp, cache) # dx => (N * H * W, C)
+    dx = dx.reshape(*dout_t.shape).transpose((0, 3, 1, 2)) # dx => (N, C, H, W)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################

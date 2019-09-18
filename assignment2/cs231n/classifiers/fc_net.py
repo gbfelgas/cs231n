@@ -293,6 +293,8 @@ class FullyConnectedNet(object):
         for i in range(self.num_layers - 1):
           W = self.params['W%d'%(i + 1)]
           b = self.params['b%d'%(i + 1)]
+          gamma = self.params['gamma%d'%(i + 1)]
+          beta  = self.params['beta%d'%(i + 1)]
           bn_cache, do_cache = None, None
 
           # forward process: affine -> batch/layer norm (if configured) -> relu -> dropout (if configured)
@@ -301,18 +303,14 @@ class FullyConnectedNet(object):
           # affine forward
           out, aff_cache = affine_forward(out, W, b)
 
-          # batch/layer normalization forward
-          if self.normalization:
-            gamma = self.params['gamma%d'%(i + 1)]
-            beta  = self.params['beta%d'%(i + 1)]
-            # batch norm
-            if self.normalization == 'batchnorm':
-              print('gamma size: ', gamma.size)
-              print('beta size: ', beta.size)
-              out, bn_cache = batchnorm_forward(out, gamma, beta, bn_param)
-            # layer norm
-            elif self.normalization == 'layernorm':
-              out, bn_cache = layernorm_forward(out, gamma, beta, bn_param)
+          # batch norm forward
+          if self.normalization == 'batchnorm':
+            print('gamma size: ', gamma.size)
+            print('beta size: ', beta.size)
+            out, bn_cache = batchnorm_forward(out, gamma, beta, bn_param)
+          # layer norm forward
+          elif self.normalization == 'layernorm':
+            out, bn_cache = layernorm_forward(out, gamma, beta, bn_param)
 
           # relu forward
           out, relu_cache = relu_forward(out)
@@ -324,9 +322,9 @@ class FullyConnectedNet(object):
           cache = (aff_cache, bn_cache, relu_cache, do_cache)
           caches.append(cache)
 
+        # last layer
         W = self.params['W%d'%(self.num_layers)]
         b = self.params['b%d'%(self.num_layers)]
-
         scores, cache = affine_forward(out, W, b)
         caches.append(cache)
 
@@ -395,19 +393,16 @@ class FullyConnectedNet(object):
           # relu backward
           dout = relu_backward(dout, relu_cache)
 
-          # batch/layer normalization backward
-          if self.normalization:
-            gamma = 'gamma%d'%(i + 1)
-            beta = 'beta%d'%(i + 1)
-            # batch norm
-            if self.normalization == 'batchnorm':
-              dout, dgamma, dbeta = batchnorm_backward_alt(dout, bn_cache)
-              grads[gamma] = dgamma
-              grads[beta] = dbeta
-
-            # layer norm
-            elif self.normalization == 'layernorm':
-              dout, dgamma, dbeta = layernorm_backward(dout, bn_cache)
+          gamma = 'gamma%d'%(i + 1)
+          beta = 'beta%d'%(i + 1)
+          # batch norm backward
+          if self.normalization == 'batchnorm':
+            dout, dgamma, dbeta = batchnorm_backward_alt(dout, bn_cache)
+            grads[gamma] = dgamma
+            grads[beta] = dbeta
+          # layer norm backward
+          elif self.normalization == 'layernorm':
+            dout, dgamma, dbeta = layernorm_backward(dout, bn_cache)
 
           # affine backward
           dout, dW, db = affine_backward(dout, aff_cache)

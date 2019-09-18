@@ -55,7 +55,14 @@ class ThreeLayerConvNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        C, H, W = input_dim
+
+        self.params['W1'] = np.random.normal(0, weight_scale, [num_filters, 3, filter_size, filter_size])
+        self.params['b1'] = np.zeros([num_filters])
+        self.params['W2'] = np.random.normal(0, weight_scale, [np.int(H/2)*np.int(H/2)*num_filters, hidden_dim])
+        self.params['b2'] = np.zeros([hidden_dim])
+        self.params['W3'] = np.random.normal(0, weight_scale, [hidden_dim, num_classes])
+        self.params['b3'] = np.zeros([num_classes])
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -95,7 +102,17 @@ class ThreeLayerConvNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        out = X
+        conv_cache, aff_cache, scores_cache = None, None, None
+        
+        # first layer forward
+        out, conv_cache = conv_relu_pool_forward(out, W1, b1, conv_param, pool_param)
+
+        # second layer forward
+        out, aff_cache = affine_relu_forward(out, W2, b2)
+
+        # third layer forward
+        scores, scores_cache = affine_forward(out, W3, b3)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -118,7 +135,30 @@ class ThreeLayerConvNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        reg_loss = 0.5 * self.reg * (np.sum(W1 ** 2) + np.sum(W2 ** 2) + np.sum(W3 ** 2))
+        data_loss, dscores = softmax_loss(scores, y)
+        loss = data_loss + reg_loss
+
+        # third layer backward
+        dout, dW3, db3 = affine_backward(dscores, scores_cache)
+
+        # second layer backward
+        dout, dW2, db2 = affine_relu_backward(dout, aff_cache)
+
+        # first layer backward
+        dx, dW1, db1 = conv_relu_pool_backward(dout, conv_cache)
+
+        # add regularization gradient contribution
+        dW3 += self.reg * W3
+        dW2 += self.reg * W2
+        dW1 += self.reg * W1
+
+        grads['W1'] = dW1
+        grads['b1'] = db1
+        grads['W2'] = dW2
+        grads['b2'] = db2
+        grads['W3'] = dW3
+        grads['b3'] = db3
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################

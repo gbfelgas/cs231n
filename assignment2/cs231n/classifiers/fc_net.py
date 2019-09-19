@@ -264,7 +264,7 @@ class FullyConnectedNet(object):
         # behave differently during training and testing.
         dropout_param = {}
         if self.use_dropout:
-            self.dropout_param['mode'] = mode
+            dropout_param['mode'] = mode
         
         bn_param = []
         if self.normalization=='batchnorm':
@@ -317,7 +317,7 @@ class FullyConnectedNet(object):
 
           # dropout forward
           if self.use_dropout:
-            out, do_cache = dropout_forward(out, dropout_param)
+            out, do_cache = dropout_forward(out, self.dropout_param)
 
           cache = (aff_cache, bn_cache, relu_cache, do_cache)
           caches.append(cache)

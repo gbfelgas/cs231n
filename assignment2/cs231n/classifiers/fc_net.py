@@ -210,19 +210,17 @@ class FullyConnectedNet(object):
           if i == self.num_layers - 1:
             output_dim = num_classes
           else:
-            output_dim = hidden_dims[i]
+            output_dim = hidden_dims[i]            
+            # for batch/layer normalization
+            if self.normalization == 'batchnorm' or self.normalization == 'layernorm':
+              self.params['gamma%d'%(i + 1)] = np.ones(output_dim)
+              self.params['beta%d'%(i + 1)] = np.zeros(output_dim)
 
           self.params['W%d'%(i + 1)] = np.random.normal(loc=0.0, scale=weight_scale, size=(input_dim, output_dim))
           self.params['b%d'%(i + 1)] = np.zeros(output_dim)
-          
-          # for batch/layer normalization
-          if self.normalization:
-            self.params['gamma%d'%(i + 1)] = np.ones(output_dim)
-            self.params['beta%d'%(i + 1)] = np.zeros(output_dim)
 
           input_dim = output_dim
           
-
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -293,8 +291,12 @@ class FullyConnectedNet(object):
         for i in range(self.num_layers - 1):
           W = self.params['W%d'%(i + 1)]
           b = self.params['b%d'%(i + 1)]
-          gamma = self.params['gamma%d'%(i + 1)]
-          beta  = self.params['beta%d'%(i + 1)]
+          
+          # initializing for batch/layer normalization
+          if self.normalization:
+            gamma = self.params['gamma%d'%(i + 1)]
+            beta  = self.params['beta%d'%(i + 1)]
+          
           bn_cache, do_cache = None, None
 
           # forward process: affine -> batch/layer norm (if configured) -> relu -> dropout (if configured)
@@ -305,12 +307,10 @@ class FullyConnectedNet(object):
 
           # batch norm forward
           if self.normalization == 'batchnorm':
-            print('gamma size: ', gamma.size)
-            print('beta size: ', beta.size)
-            out, bn_cache = batchnorm_forward(out, gamma, beta, bn_param)
+            out, bn_cache = batchnorm_forward(out, gamma, beta, self.bn_params[i])
           # layer norm forward
           elif self.normalization == 'layernorm':
-            out, bn_cache = layernorm_forward(out, gamma, beta, bn_param)
+            out, bn_cache = layernorm_forward(out, gamma, beta, self.bn_params[i])
 
           # relu forward
           out, relu_cache = relu_forward(out)
@@ -411,7 +411,7 @@ class FullyConnectedNet(object):
           dW += self.reg * W
 
           grads['W%d'%(i + 1)] = dW
-          grads['b%d'%(i + 1)] = db  
+          grads['b%d'%(i + 1)] = db
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################

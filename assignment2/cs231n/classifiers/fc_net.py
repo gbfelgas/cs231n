@@ -402,7 +402,9 @@ class FullyConnectedNet(object):
             grads[beta] = dbeta
           # layer norm backward
           elif self.normalization == 'layernorm':
-            dout, dgamma, dbeta = layernorm_backward(dout, bn_cache)
+            dout, dgamma, dbeta = layernorm_backward(dout, bn_cache)            
+            grads[gamma] = dgamma
+            grads[beta] = dbeta
 
           # affine backward
           dout, dW, db = affine_backward(dout, aff_cache)

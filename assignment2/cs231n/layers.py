@@ -375,7 +375,23 @@ def layernorm_forward(x, gamma, beta, ln_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    # mean = np.mean(x, axis=1)
+    # var = np.var(x, axis=1)
+
+    # x_t = np.transpose(x)
+    # xhat = (x_t - mean) / (np.sqrt(var + eps))
+    # xhat_t = np.transpose(xhat)
+
+    # out = gamma * xhat_t + beta
+
+    mean = np.mean(x, axis=1, keepdims=True)
+    var = np.var(x, axis=1, keepdims=True)  
+
+    xhat = (x - mean) / (np.sqrt(var + eps))
+       
+    out = gamma * xhat + beta
+
+    cache = (gamma, beta, x, mean, var, eps, xhat)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -410,7 +426,17 @@ def layernorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    gamma, beta, x, mean, var, eps, xhat = cache
+    N = dout.shape[1]
+
+    dgamma = np.sum(dout * xhat, axis=0)
+    dbeta = np.sum(dout, axis=0)
+
+    dldxhat = dout * gamma
+    dldvar = np.sum(dldxhat * (x - mean) * -0.50 * ((var + eps) ** -1.5), axis=1, keepdims=True)
+    dldmean = np.sum(dldxhat * (- 1.0 / np.sqrt(var + eps)), axis=1, keepdims=True) + (dldvar * np.sum(-2.0 * (x - mean), axis=1, keepdims=True) / N)
+
+    dx = (dldxhat / np.sqrt(var + eps)) + (dldvar * 2 * (x - mean) / N) + (dldmean / N)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################

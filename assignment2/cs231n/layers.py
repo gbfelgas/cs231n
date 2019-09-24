@@ -856,7 +856,18 @@ def spatial_groupnorm_forward(x, gamma, beta, G, gn_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N, C, H, W = x.shape
+    x = np.reshape(x, (N, G, C // G, H, W))
+
+    mean = np.mean(x, axis=(2, 3, 4), keepdims=True)
+    var = np.var(x, axis=(2, 3, 4), keepdims=True)
+
+    xhat = (x - mean) / (np.sqrt(var + eps))    
+    xhat = np.reshape(xhat, (N, C, H, W))
+       
+    out = gamma * xhat + beta
+
+    cache = (gamma, beta, x, mean, var, eps, xhat, G)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -886,7 +897,35 @@ def spatial_groupnorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    gamma, beta, x, mean, var, eps, xhat, G = cache
+    N, C, H, W = dout.shape
+    
+    print('gamma.shape: ', gamma.shape)
+    print('beta.shape: ', beta.shape)
+    print('x.shape: ', x.shape)
+    print('mean.shape: ', mean.shape)
+    print('var.shape: ', var.shape)
+    print('xhat.shape: ', xhat.shape)
+    print('dout.shape: ', dout.shape)
+
+    # dout = np.reshape(dout, (N, G, C // G, H, W))
+    dgamma = np.sum(dout * xhat, axis=(0, 2, 3))
+    dgamma = np.reshape(dgamma, (1, dgamma.shape[0], 1, 1))
+    dbeta = np.sum(dout, axis=(0, 2, 3))
+    dbeta = np.reshape(dbeta, (1, dbeta.shape[0], 1, 1))
+
+    # x = np.reshape(x, (N, C, H, W))
+    # mean = np.reshape(mean, (N, C, H, W))
+    # var = np.reshape(var, (N, C, H, W))
+
+    dldxhat = dout * gamma        
+    dldxhat = np.reshape(dldxhat, (N, G, C // G, H, W))
+
+    dldvar = np.sum(dldxhat * (x - mean) * -0.50 * ((var + eps) ** -1.5), axis=1, keepdims=True)
+    dldmean = np.sum(dldxhat * (- 1.0 / np.sqrt(var + eps)), axis=1, keepdims=True) + (dldvar * np.sum(-2.0 * (x - mean), axis=1, keepdims=True) / C)
+
+    dx = (dldxhat / np.sqrt(var + eps)) + (dldvar * 2 * (x - mean) / C) + (dldmean / C)
+    dx = np.reshape(dx, (N, C, H, W))
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################

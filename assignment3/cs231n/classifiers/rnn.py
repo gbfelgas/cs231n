@@ -142,8 +142,47 @@ class CaptioningRNN(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        # Considering the steps above:
 
+        # FORWARD
+
+        # 1 - Affine Layer
+        hidden, cache_hidden = affine_forward(features, W_proj, b_proj)
+
+        # 2 - Word Embedding Layer
+        embed, cache_embed = word_embedding_forward(captions_in, W_embed)
+
+        # 3 - RNN Layer or LSTM Layer
+        if self.cell_type == 'rnn':
+          hidden_recurr, cache_recurr = rnn_forward(embed, hidden, Wx, Wh, b)
+        elif self.cell_type == 'lstm':
+          hidden_recurr, cache_recurr = lstm_forward(embed, hidden, Wx, Wh, b)
+
+        # 4 - Temporal Affine Layer
+        scores, cache_scores = temporal_affine_forward(hidden_recurr, W_vocab, b_vocab)
+
+        # 5 - Temporal Softmax Loss
+        loss, dscores = temporal_softmax_loss(scores, captions_out, mask)
+
+
+        # BACKWARD
+
+        # 4 - Temporal Affine Layer
+        dhidden_recurr, grads['W_vocab'], grads['b_vocab'] = temporal_affine_backward(dscores, cache_scores)
+
+        # 3 - RNN Layer or LSTM Layer
+        if self.cell_type == 'rnn':
+            dembed, dhidden, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(dhidden_recurr, cache_recurr)
+        elif self.cell_type == 'lstm':
+            dembed, dhidden, grads['Wx'], grads['Wh'], grads['b'] = lstm_backward(dhidden_recurr, cache_recurr)
+
+        # 2 - Word Embedding Layer
+        grads['W_embed'] = word_embedding_backward(dembed, cache_embed)
+
+        # 1 - Affine Layer
+        dfeatures, grads['W_proj'], grads['b_proj'] = affine_backward(dhidden, cache_hidden)
+
+        
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -211,7 +250,31 @@ class CaptioningRNN(object):
         ###########################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        # Considering the steps above:
+
+        # 0 - Affine initialization
+        hidden, cache_hidden = affine_forward(features, W_proj, b_proj)
+
+        # 1 - Embedded <START>
+        word_embed, cache_embed = word_embedding_forward(self._start, W_embed)
+        
+        cell = np.zeros_like(hidden)
+        # The for loop always considers the maximum length
+        for step in range(max_length):
+          # 2 - RNN Layer or LSTM Layer
+          if self.cell_type == 'rnn':
+              hidden, cache_recurr = rnn_step_forward(word_embed, hidden, Wx, Wh, b)
+          elif self.cell_type == 'lstm':
+              hidden, cell, cache_recurr = lstm_step_forward(word_embed, hidden, cell, Wx, Wh, b)
+
+          # 3 - Affine Layer
+          scores, cache_scores = affine_forward(hidden, W_vocab, b_vocab)
+
+          # 4 - Highest score selection
+          captions[:, step] = np.argmax(scores, axis=1)
+
+          # Output word embedding for next step
+          word_embed, cache_embed = word_embedding_forward(captions[:, step], W_embed)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################

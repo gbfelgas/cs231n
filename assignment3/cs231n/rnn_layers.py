@@ -38,6 +38,7 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
 
     h = np.dot(x, Wx) + np.dot(prev_h, Wh) + b
     next_h = np.tanh(h)
+
     cache = (x, Wx, Wh, prev_h, h, next_h)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -73,12 +74,12 @@ def rnn_step_backward(dnext_h, cache):
 
     (x, Wx, Wh, prev_h, h, next_h) = cache
 
-    # d(tanh) = 1 - tanh * tanh
-    dh = (1 - next_h * next_h) * dnext_h
-    dWx = x.T.dot(dh)
-    dx = dh.dot(Wx.T)
-    dWh = prev_h.T.dot(dh)
-    dprev_h = dh.dot(Wh.T)
+    # dnext_h / dh = 1 - tanh^2(h) = 1 - next_h^2
+    dh = (1 - next_h ** 2) * dnext_h
+    dWx = np.dot(x.T, dh)
+    dx = np.dot(dh, Wx.T)
+    dWh = np.dot(prev_h.T, dh)
+    dprev_h = np.dot(dh, Wh.T)
     db = np.sum(dh, axis=0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -114,7 +115,18 @@ def rnn_forward(x, h0, Wx, Wh, b):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N, T, D = x.shape
+    N, H = h0.shape
+
+    h = np.zeros((N, T, H))
+    prev_h = h0
+
+    cache = {}
+
+    for i in range(T):
+        prev_h, cache_step = rnn_step_forward(x[:, i, :], prev_h, Wx, Wh, b)
+        h[:, i, :] = prev_h
+        cache[i] = cache_step
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -150,7 +162,20 @@ def rnn_backward(dh, cache):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N, T, H = dh.shape
+    D = cache[0][0].shape[1]
+
+    dx = np.zeros((N, T, D))
+    dh0 = np.zeros((N, H))
+    dWx = np.zeros((D, H))
+    dWh = np.zeros((H, H))
+    db = np.zeros(H)
+
+    for i in reversed(range(T)):
+        dx[:, i, :], dh0, dWx_step, dWh_step, db_step = rnn_step_backward(dh[:, i, :] + dh0, cache[i])
+        dWx += dWx_step
+        dWh += dWh_step
+        db += db_step
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -167,7 +192,7 @@ def word_embedding_forward(x, W):
 
     Inputs:
     - x: Integer array of shape (N, T) giving indices of words. Each element idx
-      of x muxt be in the range 0 <= idx < V.
+      of x must be in the range 0 <= idx < V.
     - W: Weight matrix of shape (V, D) giving word vectors for all words.
 
     Returns a tuple of:
@@ -182,7 +207,10 @@ def word_embedding_forward(x, W):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    # embedding lookup
+    out = W[x, :]
+
+    cache = x, W
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -215,7 +243,13 @@ def word_embedding_backward(dout, cache):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, W = cache
+    V, D = W.shape
+
+    dW = np.zeros((V, D))
+
+    # increment dout in the gradients of the weights of the words indexed by x
+    np.add.at(dW, x, dout)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################

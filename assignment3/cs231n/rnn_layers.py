@@ -36,7 +36,9 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    h = np.dot(x, Wx) + np.dot(prev_h, Wh) + b
+    next_h = np.tanh(h)
+    cache = (x, Wx, Wh, prev_h, h, next_h)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -69,7 +71,15 @@ def rnn_step_backward(dnext_h, cache):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    (x, Wx, Wh, prev_h, h, next_h) = cache
+
+    # d(tanh) = 1 - tanh * tanh
+    dh = (1 - next_h * next_h) * dnext_h
+    dWx = x.T.dot(dh)
+    dx = dh.dot(Wx.T)
+    dWh = prev_h.T.dot(dh)
+    dprev_h = dh.dot(Wh.T)
+    db = np.sum(dh, axis=0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################

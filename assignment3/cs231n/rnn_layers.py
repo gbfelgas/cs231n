@@ -72,7 +72,7 @@ def rnn_step_backward(dnext_h, cache):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    (x, Wx, Wh, prev_h, h, next_h) = cache
+    x, Wx, Wh, prev_h, h, next_h = cache
 
     # dnext_h / dh = 1 - tanh^2(h) = 1 - next_h^2
     dh = (1 - next_h ** 2) * dnext_h
@@ -123,10 +123,10 @@ def rnn_forward(x, h0, Wx, Wh, b):
 
     cache = {}
 
-    for i in range(T):
-        prev_h, cache_step = rnn_step_forward(x[:, i, :], prev_h, Wx, Wh, b)
-        h[:, i, :] = prev_h
-        cache[i] = cache_step
+    for step in range(T):
+        prev_h, cache_step = rnn_step_forward(x[:, step, :], prev_h, Wx, Wh, b)
+        h[:, step, :] = prev_h
+        cache[step] = cache_step
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -171,8 +171,8 @@ def rnn_backward(dh, cache):
     dWh = np.zeros((H, H))
     db = np.zeros(H)
 
-    for i in reversed(range(T)):
-        dx[:, i, :], dh0, dWx_step, dWh_step, db_step = rnn_step_backward(dh[:, i, :] + dh0, cache[i])
+    for step in reversed(range(T)):
+        dx[:, step, :], dh0, dWx_step, dWh_step, db_step = rnn_step_backward(dh[:, step, :] + dh0, cache[step])
         dWx += dWx_step
         dWh += dWh_step
         db += db_step
@@ -301,7 +301,26 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N, H = prev_h.shape
+    activation = np.dot(x, Wx) + np.dot(prev_h, Wh) + b
+
+    # input gate
+    i = sigmoid(activation[:, :H])
+
+    # forget gate
+    f = sigmoid(activation[:, H:2*H])
+
+    # output gate
+    o = sigmoid(activation[:, 2*H:3*H])
+
+    # block input
+    g = np.tanh(activation[:, 3*H:])
+
+    # current state
+    next_c = f * prev_c + i * g
+    next_h = o * np.tanh(next_c)
+
+    cache = (x, prev_h, prev_c, Wx, Wh, activation, i, f, o, g, next_c, next_h)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -337,7 +356,72 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, prev_h, prev_c, Wx, Wh, activation, i, f, o, g, next_c, next_h = cache
+
+    N, H = dnext_h.shape
+    dactivation = np.zeros((N, 4*H))
+
+    # this part is detailed for better comprehension
+
+    # ---------------------------------------------- #
+
+    # next_h = o * tanh(next_c)
+
+    # output gate
+    do = np.tanh(next_c)
+    do *= dnext_h # transfering the final gradient
+
+    # c_t
+    # attention to the sum of the given dnext_c
+    dnext_c += o * (1 - np.tanh(next_c) ** 2) * dnext_h # transfering the final gradient only through this part 'cause the given dnext_c is not from this equation
+    
+    # ---------------------------------------------- #
+
+    # next_c = f * prev_c + i * g
+
+    # input gate
+    di = g
+    di *= dnext_c # transfering the final gradient
+
+    # forget gate
+    df = prev_c
+    df *= dnext_c # transfering the final gradient
+
+    # block input
+    dg = i
+    dg *= dnext_c # transfering the final gradient
+
+    # c_(t-1)
+    dprev_c = f
+    dprev_c *= dnext_c # transfering the final gradient
+
+    # ---------------------------------------------- #
+
+    # i = sigmoid(a[:, :H])
+    dactivation[:, :H] = (sigmoid(activation[:, :H]) * (1 - sigmoid(activation[:, :H])))
+    dactivation[:, :H] *= di # transfering the final gradient
+
+    # f = sigmoid(a[:, H:2H])
+    dactivation[:, H:2*H] = (sigmoid(activation[:, H:2*H]) * (1 - sigmoid(activation[:, H:2*H])))
+    dactivation[:, H:2*H] *= df # transfering the final gradient
+
+    # o = sigmoid(a[:, 2H:3H])
+    dactivation[:, 2*H:3*H] = (sigmoid(activation[:, 2*H:3*H]) * (1 - sigmoid(activation[:, 2*H:3*H])))
+    dactivation[:, 2*H:3*H] *= do # transfering the final gradient
+
+    # g = tanh(activation[:, 3H:])
+    dactivation[:, 3*H:] = (1 - np.tanh(activation[:, 3*H:]) ** 2)
+    dactivation[:, 3*H:] *= dg # transfering the final gradient
+
+    # ---------------------------------------------- #
+
+    # activation = x W_x + prev_h W_h + b
+    # the final gradient is being transfered inside np.dot
+    dx = np.dot(dactivation, Wx.T)
+    dWx = np.dot(x.T, dactivation)
+    dprev_h = np.dot(dactivation, Wh.T)
+    dWh = np.dot(prev_h.T, dactivation)
+    db = np.sum(dactivation, axis=0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -376,7 +460,21 @@ def lstm_forward(x, h0, Wx, Wh, b):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N, T, D = x.shape
+    N, H = h0.shape
+
+    h = np.zeros((N, T, H))
+    prev_h = h0
+
+    cache = {}
+
+    # adding initial cell state
+    prev_c = np.zeros((N, H))
+
+    for step in range(T):
+        prev_h, prev_c, cache_step = lstm_step_forward(x[:, step, :], prev_h, prev_c, Wx, Wh, b)
+        h[:, step, :] = prev_h
+        cache[step] = cache_step
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -388,7 +486,7 @@ def lstm_forward(x, h0, Wx, Wh, b):
 
 def lstm_backward(dh, cache):
     """
-    Backward pass for an LSTM over an entire sequence of data.]
+    Backward pass for an LSTM over an entire sequence of data.
 
     Inputs:
     - dh: Upstream gradients of hidden states, of shape (N, T, H)
@@ -408,7 +506,24 @@ def lstm_backward(dh, cache):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N, T, H = dh.shape
+    D = cache[0][0].shape[1]
+
+    dx = np.zeros((N, T, D))
+    dh0 = np.zeros((N, H))
+    dWx = np.zeros((D, 4*H))
+    dWh = np.zeros((H, 4*H))
+    db = np.zeros(4*H)
+
+    # adding cell state
+    dnext_c = np.zeros((N, H))
+
+    for step in reversed(range(T)):
+        dx[:, step, :], dh0, dnext_c, dWx_step, dWh_step, db_step = lstm_step_backward(dh[:, step, :], dnext_c, cache[step])
+
+        dWx += dWx_step
+        dWh += dWh_step
+        db += db_step
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################

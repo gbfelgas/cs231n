@@ -520,7 +520,6 @@ def lstm_backward(dh, cache):
 
     for step in reversed(range(T)):
         dx[:, step, :], dh0, dnext_c, dWx_step, dWh_step, db_step = lstm_step_backward(dh[:, step, :], dnext_c, cache[step])
-
         dWx += dWx_step
         dWh += dWh_step
         db += db_step
